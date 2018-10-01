@@ -26,24 +26,24 @@ def get_power_status(outlet):
 	global power
 	output = int(subprocess.check_output(['sispmctl', '-qng', str(outlet)]).strip())
 	if output == 1:
-		power = True
+		power[outlet] = True
 	else:
-		power = False
-	return power
+		power[outlet] = False
+	return power[outlet]
 
 def power_on(outlet):
 	global power
-	if not power:
+	if not power[outlet]:
 		print 'Powering on'
 		subprocess.call(['sispmctl', '-qo', str(outlet)])
-		power = True
+        power[outlet] = True
 
 def power_off(outlet):
 	global power
-	if power:
+	if power[outlet]:
 		print 'Powering off'
 		subprocess.call(['sispmctl', '-qf', str(outlet)])
-		power = False
+        power[outlet] = False
 
 def dht(sensor, pin):
 	global humidity, temperature
@@ -69,24 +69,30 @@ error = 0.7
 read_config()
 temperature = 25
 humidity = (min_humidity + max_humidity) / 2
-outlet = 1
-power = False
+outlets = [1, 2]
+power = {}
+for outlet in outlets:
+    power[outlet] = False
 running = True
 signal.signal(signal.SIGHUP, signal_hup)
 signal.signal(signal.SIGTERM, signal_term)
 try:
 	while running:
-		get_power_status(outlet)
+		for outlet in outlets:
+			get_power_status(outlet)
 		dht(sensor, pin)
 		output('T=%.1f H=%.1f' % (temperature, humidity))
 		if humidity <= min_humidity:
-			power_on(outlet)
+			for outlet in outlets:
+				power_on(outlet)
 		elif humidity >= max_humidity:
-			power_off(outlet)
+			for outlet in outlets:
+				power_off(outlet)
 		for second in range(5):
 			if running:
 				time.sleep(1)
 except KeyboardInterrupt:
 	pass
 print 'Quitting...'
-power_off(outlet)
+for outlet in outlets:
+	power_off(outlet)
